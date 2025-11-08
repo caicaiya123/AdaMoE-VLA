@@ -118,7 +118,7 @@ Evaluation on RoboTwin is identical to the official RoboTwin repo.
 
 ## ☎️ Contacts
 If you need any assistance, please feel free to raise issues, join our WeChat Group below, or contact the authors directly.
-<img width="1161" height="341" alt="1bbc8bbde5ee95f385d451ea0ef87eed" src="https://github.com/user-attachments/assets/c9b24661-889e-4a17-a3d7-a1b4dc4e348e" />
+<img width="1161" height="341" src="img/contacts.png" />
 
 ## 📝 Citations
 If you find our work useful, please consider citing:
