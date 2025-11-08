@@ -14,6 +14,7 @@ This is the official repository for the paper [Expertise Need not Monopolize: Ac
 Our key finding is that the original coupled design of routers in MoE limits model performance. Therefore, we propose a simple yet effective modification that decouples expert selection from expert weighting through the introduction of a scale adapter. We call our new architecture **AdaMoE-VLA**.
 ![Pipeline](img/pipeline.png)
 Beyond resolving the optimization conflict, this design embodies our core philosophy: **“Expertise need not monopolize”**—the ability of an expert to be selected for a task should not dictate its relative importance in the final output. An expert might be highly relevant (selected by the router) while still contributing modestly (controlled by both the scale adapter and router), or vice versa. This decoupling allows for more nuanced expert combinations that better reflect the complex, multi-faceted nature of robotic manipulation tasks.
+More details and visualizations can be found in [our paper](https://arxiv.org/abs/2510.14300) and [our website](https://charleshen1412.github.io/AdaMoE-VLA/).
 
 ## 🔥 Quick Start
 
