@@ -136,7 +136,7 @@ Expertise need not monopolize: Action-Specialized Mixture of Experts for Vision-
 }
 ```
 
-## Acknowledgment
+## 🥰 Acknowledgement
 
 RoboTwin 2.0: A Scalable Data Generator and Benchmark with Strong Domain Randomization for Robust Bimanual Robotic Manipulation
 ``` 
