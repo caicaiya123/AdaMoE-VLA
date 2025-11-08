@@ -1,4 +1,4 @@
-# Expertise need not monopolize: Action-Specialized Mixture of Experts for Vision-Language-Action Learning😋
+# Expertise Need not Monopolize: Action-Specialized Mixture of Experts for Vision-Language-Action Learning😋
 
 [\[📖 Arxiv\]](https://arxiv.org/abs/2510.14300)
 [\[🌐 Website\]](https://charleshen1412.github.io/AdaMoE-VLA/)
@@ -8,8 +8,15 @@
 - ✅ Release Training and Evaluation Code
 - [ ] Release Experts Activation Visualization
 - [ ] Release Checkpoints
+
+## 🎬 Introduction
+This is the official repository for the paper [Expertise Need not Monopolize: Action-Specialized Mixture of Experts for Vision-Language-Action Learning](https://arxiv.org/abs/2510.14300), in which we explore efficient ways to scale up Vision-Language-Action(VLA) Models via Mixture-of-Experts(MoE) architectures. We build our code based on the official [openpi repo](https://github.com/Physical-Intelligence/openpi), and replaced the feedforward network of the openpi model's action expert with sparse activated MoE. 
+Our key finding is that the original coupled design of routers in MoE limits model performance. Therefore, we propose a simple yet effective modification that decouples expert selection from expert weighting through the introduction of a scale adapter. We call our new architecture **AdaMoE-VLA**.
+![Pipeline](img/pipeline.png)
+Beyond resolving the optimization conflict, this design embodies our core philosophy: **“Expertise need not monopolize”**—the ability of an expert to be selected for a task should not dictate its relative importance in the final output. An expert might be highly relevant (selected by the router) while still contributing modestly (controlled by both the scale adapter and router), or vice versa. This decoupling allows for more nuanced expert combinations that better reflect the complex, multi-faceted nature of robotic manipulation tasks.
+
 ## 🔥 Quick Start
-We build our code based on the official [openpi repo](https://github.com/Physical-Intelligence/openpi).
+
 ### 🌏 Environment Setup
 Before running uv commands, please make sure [uv](https://docs.astral.sh/uv/) was installed in your machine. See the [uv installation instructions](https://docs.astral.sh/uv/getting-started/installation/) to set it up.
 ```
