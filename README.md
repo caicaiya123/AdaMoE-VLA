@@ -176,7 +176,7 @@ Expertise need not monopolize: Action-Specialized Mixture of Experts for Vision-
 
 * $\pi_0$: A Vision-Language-Action Flow Model for General Robot Control ([link](https://github.com/Physical-Intelligence/openpi))
     <details>
-    <summary>Cite Openpi$</summary>
+    <summary>Cite Openpi</summary>
 
     ```
     @misc{black2024pi0visionlanguageactionflowmodel,
