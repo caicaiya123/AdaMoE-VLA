@@ -146,7 +146,7 @@ Expertise need not monopolize: Action-Specialized Mixture of Experts for Vision-
 
 ## 🥰 Acknowledgement
 
-RoboTwin 2.0: A Scalable Data Generator and Benchmark with Strong Domain Randomization for Robust Bimanual Robotic Manipulation
+RoboTwin 2.0: A Scalable Data Generator and Benchmark with Strong Domain Randomization for Robust Bimanual Robotic Manipulation ([link](https://robotwin-platform.github.io/doc/index.html))
 ``` 
 @article{chen2025robotwin,
   title={Robotwin 2.0: A scalable data generator and benchmark with strong domain randomization for robust bimanual robotic manipulation},
@@ -155,7 +155,7 @@ RoboTwin 2.0: A Scalable Data Generator and Benchmark with Strong Domain Randomi
   year={2025}
 }
 ```
-Benchmarking Knowledge Transfer for Lifelong Robot Learning
+Benchmarking Knowledge Transfer for Lifelong Robot Learning ([link](https://libero-project.github.io/main))
 ```
 @article{liu2023libero,
   title={LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning},
@@ -164,7 +164,7 @@ Benchmarking Knowledge Transfer for Lifelong Robot Learning
   year={2023}
 }
 ```
-$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control
+$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control ([link](https://github.com/Physical-Intelligence/openpi))
 ```
 @misc{black2024pi0visionlanguageactionflowmodel,
       title={$\pi_0$: A Vision-Language-Action Flow Model for General Robot Control}, 
