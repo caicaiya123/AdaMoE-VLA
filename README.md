@@ -25,6 +25,10 @@ git clone --recurse-submodules https://github.com/swjTheDad/AdaMoE-VLA.git
 GIT_LFS_SKIP_SMUDGE=1 uv sync
 GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
 ```
+If the LIBERO submodule is not cloned by the git clone command, you can add it to your submodules manually by:
+```
+git submodule add https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/libero
+```
 ### 💪 Training
 Our training pipeline is identical to openpi, with addtional hyparameters for MoE. Below are new options we provide to adjust your custom openpi model with MoE architectures.
 We support the [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO) benchmark and the [RoboTwin](https://robotwin-platform.github.io/doc/index.html) benchmark. 
