@@ -17,6 +17,6 @@ export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Start Inference
 python scripts/serve_policy.py \
   --port "$PORT" \
-  --env "LIBERO policy:checkpoint" \
+  --env LIBERO policy:checkpoint \
   --policy.config="your_config_name" \
   --policy.dir="$CHECKPOINT_DIR/$STEP"
