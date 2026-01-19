@@ -107,6 +107,37 @@ class RepackTransform(DataTransformFn):
 
 
 @dataclasses.dataclass(frozen=True)
+class RepackTransformWithFallback(DataTransformFn):
+    """Repack like `RepackTransform`, but allow multiple candidate source paths per leaf.
+
+    Leaves in `structure` may be either:
+    - a single string path, e.g. "observation/image"
+    - a sequence of string paths, e.g. ("observation/image", "observation/images/front")
+
+    The first path that exists in the flattened input will be used.
+    """
+
+    structure: at.PyTree[str | Sequence[str]]
+
+    def __call__(self, data: DataDict) -> DataDict:
+        flat_item = flatten_dict(data)
+
+        def resolve(spec: str | Sequence[str]):
+            if isinstance(spec, str):
+                return flat_item[spec]
+            for k in spec:
+                if k in flat_item:
+                    return flat_item[k]
+            raise KeyError(
+                f"None of the fallback keys exist in input. Tried: {list(spec)}. "
+                f"Available keys (sample): {list(flat_item.keys())[:50]}"
+            )
+
+        # `jax.tree.map` will preserve dict/list/tuple structure for us.
+        return jax.tree.map(resolve, self.structure)
+
+
+@dataclasses.dataclass(frozen=True)
 class InjectDefaultPrompt(DataTransformFn):
     prompt: str | None
 
@@ -320,15 +351,21 @@ class PromptFromLeRobotTask(DataTransformFn):
     tasks: dict[int, str]
 
     def __call__(self, data: DataDict) -> DataDict:
-        # if "task_index" not in data:
-        #     raise ValueError('Cannot extract prompt without "task_index"')
-
-        # task_index = int(data["task_index"])
-        # if (prompt := self.tasks.get(task_index)) is None:
-        #     raise ValueError(f"{task_index=} not found in task mapping: {self.tasks}")
-        if "task" not in data:
-            raise ValueError('Cannot extract prompt: "task" key not found in data')
-        prompt = data["task"]
+        # LeRobot versions differ:
+        # - Some emit a string `task`.
+        # - Others emit an integer `task_index` with a task mapping in meta/tasks.jsonl.
+        if "task" in data:
+            prompt = data["task"]
+        elif "task_index" in data:
+            task_index = int(np.asarray(data["task_index"]).item())
+            if (prompt := self.tasks.get(task_index)) is None:
+                raise ValueError(
+                    f"{task_index=} not found in task mapping (len={len(self.tasks)})."
+                )
+        else:
+            raise ValueError(
+                'Cannot extract prompt: neither "task" nor "task_index" key found in data'
+            )
 
         return {**data, "prompt": prompt}
 

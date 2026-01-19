@@ -2,8 +2,10 @@ from collections.abc import Iterator, Sequence
 import multiprocessing
 import os
 import pathlib
+import inspect
 import typing
 from typing import Protocol, SupportsIndex, TypeVar
+import math
 
 import jax
 import jax.numpy as jnp
@@ -167,14 +169,73 @@ def create_dataset(
 
     dataset_meta = MockDatasetMeta(fps=fps, tasks=tasks)
 
-    dataset = lerobot_dataset.LeRobotDataset(
-        repo_id,
-        local_files_only=data_config.local_files_only if local_root_dir is not None else False,
-        delta_timestamps={
+    # If we are explicitly configured to use local files only, proactively validate
+    # that the expected parquet layout exists. This avoids lerobot falling back to
+    # Hugging Face Hub when it detects missing local files.
+    if data_config.local_files_only and local_root_dir is not None:
+        try:
+            total_episodes = int(info["total_episodes"])
+            chunks_size = int(info.get("chunks_size", 1000))
+            data_path_tmpl = info["data_path"]
+        except Exception as e:
+            raise ValueError(
+                f"Invalid LeRobot info.json under {actual_root}/meta/info.json; missing required fields. "
+                f"Got keys: {list(info.keys())}"
+            ) from e
+
+        num_chunks = math.ceil(total_episodes / max(1, chunks_size))
+        missing: list[pathlib.Path] = []
+        for chunk in range(num_chunks):
+            first_ep = chunk * chunks_size
+            last_ep = min(total_episodes - 1, chunk * chunks_size + chunks_size - 1)
+            for ep in (first_ep, last_ep):
+                rel = data_path_tmpl.format(episode_chunk=chunk, episode_index=ep)
+                p = actual_root / rel
+                if not p.is_file():
+                    missing.append(p)
+                    if len(missing) >= 5:
+                        break
+            if len(missing) >= 5:
+                break
+
+        if missing:
+            sample = "\n".join(f"- {p}" for p in missing)
+            raise FileNotFoundError(
+                "Local LeRobot dataset appears incomplete or has a naming/layout mismatch.\n"
+                f"Dataset root: {actual_root}\n"
+                f"info.json data_path template: {data_path_tmpl}\n"
+                "Some expected parquet files are missing (sample):\n"
+                f"{sample}\n"
+                "Common causes:\n"
+                "- chunk directory names differ (e.g. chunk-0 vs chunk-000)\n"
+                "- episode file names differ (e.g. episode_0.parquet vs episode_000000.parquet)\n"
+                "- partial download/copy: some chunks missing\n"
+            )
+
+    # Compatibility across lerobot versions:
+    # - Some versions accept LeRobotDataset(..., local_files_only=...).
+    # - Others don't; in that case we still enforce local-only via an env var and
+    #   our explicit on-disk path checks above.
+    lerobot_kwargs: dict[str, typing.Any] = {
+        "delta_timestamps": {
             key: [t / dataset_meta.fps for t in range(model_config.action_horizon)]
             for key in data_config.action_sequence_keys
-        },
-    )
+        }
+    }
+    local_only = bool(data_config.local_files_only and local_root_dir is not None)
+    if local_only:
+        try:
+            sig = inspect.signature(lerobot_dataset.LeRobotDataset)
+            if "local_files_only" in sig.parameters:
+                lerobot_kwargs["local_files_only"] = True
+            else:
+                # huggingface_hub respects this and will avoid network calls.
+                os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        except (TypeError, ValueError):
+            # If signature introspection fails for any reason, fall back to offline mode.
+            os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
+    dataset = lerobot_dataset.LeRobotDataset(repo_id, **lerobot_kwargs)
 
     if data_config.prompt_from_task:
         dataset = TransformedDataset(

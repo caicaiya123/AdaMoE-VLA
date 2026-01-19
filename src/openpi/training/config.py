@@ -298,13 +298,16 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
         # Make inputs look like they come from the Libero environment
         repack_transform = _transforms.Group(
             inputs=[
-                _transforms.RepackTransform(
+                _transforms.RepackTransformWithFallback(
                     {
-                        "observation/image": "image",
-                        "observation/wrist_image": "wrist_image",
-                        "observation/state": "state",
-                        "actions": "actions",
-                        "prompt": "prompt",
+                        # LeRobot schema varies across datasets/versions. Support both:
+                        # - older: observation.image / observation.wrist_image / actions
+                        # - newer libero+: observation.images.front / observation.images.wrist / action
+                        "observation/image": ("image", "observation/images/front"),
+                        "observation/wrist_image": ("wrist_image", "observation/images/wrist"),
+                        "observation/state": ("state", "observation/state"),
+                        "actions": ("actions", "action"),
+                        "prompt": ("prompt", "task"),
                     }
                 )
             ]
