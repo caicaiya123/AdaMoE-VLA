@@ -124,7 +124,16 @@ class RepackTransformWithFallback(DataTransformFn):
 
         def resolve(spec: str | Sequence[str]):
             if isinstance(spec, str):
-                return flat_item[spec]
+                # Convenience fallback for common schema differences.
+                # Many datasets use `action` but some pipelines expect `actions`.
+                if spec in flat_item:
+                    return flat_item[spec]
+                if spec == "actions" and "action" in flat_item:
+                    return flat_item["action"]
+                raise KeyError(
+                    f"Key '{spec}' not found in input. "
+                    f"Available keys (sample): {list(flat_item.keys())[:50]}"
+                )
             for k in spec:
                 if k in flat_item:
                     return flat_item[k]

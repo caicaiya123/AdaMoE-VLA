@@ -456,13 +456,13 @@ _CONFIGS = [
         ),
         data=LeRobotLiberoDataConfig(
             # Local merged LeRobot dataset directory name (will be resolved under HF_LEROBOT_HOME).
-            repo_id="LIBERO_plus_lerobot",
+            repo_id="libero_plus_lerobot_hf_full",
             base_config=DataConfig(
                 prompt_from_task=True,
                 local_files_only=True,
                 # Point this to your on-disk LeRobot dataset directory:
                 # e.g. /inspire/hdd/project/wuliqifa/public/gezuhao/libero_noops_with_attention_skill
-                local_root_dir="/inspire/hdd/project/wuliqifa/public/yangbowen/LIBERO_plus_lerobot",
+                local_root_dir="/inspire/hdd/project/wuliqifa/public/gezuhao/libero_plus_lerobot_hf_full",
             ),
         ),
         weight_loader=weight_loaders.MoEWeightLoader(

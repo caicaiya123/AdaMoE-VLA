@@ -160,6 +160,7 @@ def create_dataset(
     fps = info["fps"]
     # 如果你需要 tasks 列表（用于 prompt_from_task）：
     tasks = info.get("tasks", [])  # 注意：旧版转换脚本可能没写 tasks
+    features = info.get("features", {})
 
     # 构造一个 mock metadata 对象
     class MockDatasetMeta:
@@ -216,14 +217,35 @@ def create_dataset(
     # - Some versions accept LeRobotDataset(..., local_files_only=...).
     # - Others don't; in that case we still enforce local-only via an env var and
     #   our explicit on-disk path checks above.
+    # LeRobot expects `delta_timestamps` keys to be dataset feature keys (pre-repack).
+    # Different datasets use either `action` or `actions`. Prefer the config keys if they
+    # exist in info.json; otherwise auto-detect a common alternative.
+    candidate_action_keys = list(data_config.action_sequence_keys)
+    action_keys = [k for k in candidate_action_keys if k in features]
+    if not action_keys:
+        for k in ("action", "actions"):
+            if k in features:
+                action_keys = [k]
+                break
+    if not action_keys:
+        raise ValueError(
+            "Could not determine action feature key for LeRobot delta_timestamps. "
+            f"Tried {candidate_action_keys} and common alternatives ['action','actions'], "
+            f"but none were present in dataset features. "
+            f"Available feature keys: {list(features.keys())}"
+        )
+
     lerobot_kwargs: dict[str, typing.Any] = {
         "delta_timestamps": {
             key: [t / dataset_meta.fps for t in range(model_config.action_horizon)]
-            for key in data_config.action_sequence_keys
+            for key in action_keys
         }
     }
     local_only = bool(data_config.local_files_only and local_root_dir is not None)
     if local_only:
+        # Prefer passing an explicit root directory when available; this is supported by
+        # older lerobot versions (e.g. 0.1.0) and avoids relying on env var conventions.
+        lerobot_kwargs["root"] = local_root_dir
         try:
             sig = inspect.signature(lerobot_dataset.LeRobotDataset)
             if "local_files_only" in sig.parameters:

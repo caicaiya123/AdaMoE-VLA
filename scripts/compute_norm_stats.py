@@ -13,9 +13,6 @@ import openpi.shared.normalize as normalize
 import openpi.training.config as _config
 import openpi.training.data_loader as _data_loader
 import openpi.transforms as transforms
-import os
-os.environ["HF_LEROBOT_HOME"] = "/inspire/hdd/project/wuliqifa/public/yangbowen"
-
 
 class RemoveStrings(transforms.DataTransformFn):
 
