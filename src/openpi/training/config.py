@@ -61,6 +61,18 @@ class AssetsConfig:
 class DataConfig:
     # LeRobot repo id. If None, fake data will be created.
     repo_id: str | None = None
+    # Optional local dataset root directory for LeRobot-format datasets.
+    #
+    # If set, the data loader will treat this as the on-disk location of the dataset
+    # (i.e., the directory that would normally be at $HF_LEROBOT_HOME/<repo_id>).
+    # This enables loading from arbitrary local paths without relying on Hugging Face Hub.
+    #
+    # Example:
+    #   local_root_dir="/data/lerobot/libero_noops_with_attention_skill"
+    #
+    # In that case, the loader will set HF_LEROBOT_HOME="/data/lerobot" and use
+    # repo_id="libero_noops_with_attention_skill" (unless repo_id is explicitly set).
+    local_root_dir: str | None = None
     # Directory within the assets directory containing the data assets.
     asset_id: str | None = None
     # Contains precomputed normalization stats. If None, normalization will not be performed.
@@ -440,14 +452,22 @@ _CONFIGS = [
             top_k=1,
         ),
         data=LeRobotLiberoDataConfig(
-            repo_id="physical-intelligence/libero",
+            # Local merged LeRobot dataset directory name (will be resolved under HF_LEROBOT_HOME).
+            repo_id="LIBERO_plus_lerobot",
             base_config=DataConfig(
                 prompt_from_task=True,
                 local_files_only=True,
+                # Point this to your on-disk LeRobot dataset directory:
+                # e.g. /inspire/hdd/project/wuliqifa/public/gezuhao/libero_noops_with_attention_skill
+                local_root_dir="/inspire/hdd/project/wuliqifa/public/yangbowen/LIBERO_plus_lerobot",
             ),
         ),
         weight_loader=weight_loaders.MoEWeightLoader(
-            params_path="path/to/pi0_base/params",
+            # Pi0 base (JAX/Orbax) checkpoint params directory.
+            # Use either a GCS path like:
+            #   gs://openpi-assets/checkpoints/pi0_base/params
+            # or a local absolute directory containing the Orbax params checkpoint.
+            params_path="/inspire/hdd/project/wuliqifa/public/yangbowen/pi0_base_params/pi0_base/params",
             num_experts=4,  # Set number of routed experts in your model
             noise_std=0.0,  # Set the noise level added to your experts during their initialization; higher noise levels means you will have diverse experts from the beginning, but are more likely to impair the experts' knowledge inherited from the base model
             gating_init_std=0.006,  # std during router initialization
@@ -455,7 +475,7 @@ _CONFIGS = [
         batch_size=32,
         num_train_steps=90000,
         wandb_enabled=True,
-        fsdp_devices=4,
+        fsdp_devices=2,
         num_workers=40,
         optimizer=_optimizer.MultiGroupAdamW(
             lr_base=2.5e-5,  # Base model components

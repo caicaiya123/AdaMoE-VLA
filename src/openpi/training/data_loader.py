@@ -1,6 +1,7 @@
 from collections.abc import Iterator, Sequence
 import multiprocessing
 import os
+import pathlib
 import typing
 from typing import Protocol, SupportsIndex, TypeVar
 
@@ -13,6 +14,8 @@ import torch
 import openpi.models.model as _model
 import openpi.training.config as _config
 import openpi.transforms as _transforms
+
+from lerobot.common.datasets.utils import load_info
 
 T_co = TypeVar("T_co", covariant=True)
 
@@ -99,9 +102,74 @@ def create_dataset(
     if repo_id == "fake":
         return FakeDataset(model_config, num_samples=1024)
 
-    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id)
+    # Local dataset support:
+    # - If data_config.local_root_dir is provided, treat it as the actual dataset directory on disk.
+    #   We adapt by setting HF_LEROBOT_HOME to its parent and using repo_id=dir.name unless explicitly set.
+    # - If repo_id itself is an absolute path, treat it as local_root_dir for convenience.
+    local_root_dir: pathlib.Path | None = None
+    if isinstance(repo_id, str) and repo_id.startswith("/"):
+        local_root_dir = pathlib.Path(repo_id).expanduser().resolve()
+        repo_id = local_root_dir.name
+    elif data_config.local_root_dir is not None:
+        local_root_dir = pathlib.Path(data_config.local_root_dir).expanduser().resolve()
+        if not local_root_dir.exists():
+            raise FileNotFoundError(f"Local LeRobot dataset directory not found: {local_root_dir}")
+        # If the user kept repo_id as a HF-style name, we won't try to rewrite it.
+        # If they want to load exactly from local_root_dir, they can either:
+        # - set repo_id to local_root_dir.name, or
+        # - set repo_id to the absolute path (handled above).
+        if repo_id in [None, "", "physical-intelligence/libero"]:
+            repo_id = local_root_dir.name
+
+    if local_root_dir is not None:
+        # LeRobot uses HF_LEROBOT_HOME / <repo_id> as the on-disk layout. We set the env var
+        # so that LeRobotDataset(repo_id) resolves to the provided local_root_dir.
+        # Set HF_LEROBOT_HOME to the parent directory of local_root_dir
+        hf_lerobot_home = str(local_root_dir.parent)
+        os.environ["HF_LEROBOT_HOME"] = hf_lerobot_home
+        
+        # Verify that the expected path structure matches local_root_dir
+        # LeRobotDataset expects: $HF_LEROBOT_HOME/<repo_id>
+        expected_path = pathlib.Path(hf_lerobot_home) / repo_id
+        if not expected_path.resolve().exists():
+            raise FileNotFoundError(
+                f"LeRobot dataset directory not found at expected path: {expected_path}. "
+                f"local_root_dir is: {local_root_dir}, "
+                f"HF_LEROBOT_HOME is: {hf_lerobot_home}, repo_id is: {repo_id}. "
+                f"Please ensure the dataset directory exists at {expected_path}."
+            )
+        
+        # Enforce local-only if requested: validate expected directory exists.
+        if data_config.local_files_only:
+            if not local_root_dir.exists():
+                raise FileNotFoundError(
+                    f"local_files_only=True but LeRobot dataset was not found on disk. "
+                    f"Expected at: {local_root_dir}. "
+                    f"HF_LEROBOT_HOME is set to: {hf_lerobot_home}, repo_id is: {repo_id}"
+                )
+        
+        actual_root = local_root_dir
+    else:
+        # 默认行为（不推荐用于本地）
+        actual_root = pathlib.Path(os.environ.get("HF_LEROBOT_HOME", "~/.cache/huggingface/lerobot")).expanduser() / repo_id
+
+    # 直接从本地加载 info.json
+    info = load_info(actual_root)
+    fps = info["fps"]
+    # 如果你需要 tasks 列表（用于 prompt_from_task）：
+    tasks = info.get("tasks", [])  # 注意：旧版转换脚本可能没写 tasks
+
+    # 构造一个 mock metadata 对象
+    class MockDatasetMeta:
+        def __init__(self, fps, tasks):
+            self.fps = fps
+            self.tasks = tasks
+
+    dataset_meta = MockDatasetMeta(fps=fps, tasks=tasks)
+
     dataset = lerobot_dataset.LeRobotDataset(
-        data_config.repo_id,
+        repo_id,
+        local_files_only=data_config.local_files_only if local_root_dir is not None else False,
         delta_timestamps={
             key: [t / dataset_meta.fps for t in range(model_config.action_horizon)]
             for key in data_config.action_sequence_keys
