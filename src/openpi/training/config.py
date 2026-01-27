@@ -300,13 +300,14 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
             inputs=[
                 _transforms.RepackTransformWithFallback(
                     {
-                        # LeRobot schema varies across datasets/versions. Support both:
-                        # - older: observation.image / observation.wrist_image / actions
-                        # - newer libero+: observation.images.front / observation.images.wrist / action
-                        "observation/image": ("image", "observation/images/front"),
-                        "observation/wrist_image": ("wrist_image", "observation/images/wrist"),
-                        "observation/state": ("state", "observation/state"),
-                        "actions": ("actions", "action"),
+                        # This repo's Libero+ dataset stores flattened feature keys like:
+                        #   observation.images.front / observation.images.wrist / observation.state / action
+                        # We map them into the Libero-style structure expected by transforms/policies.
+                        "observation/image": ("observation.images.front", "image"),
+                        "observation/wrist_image": ("observation.images.wrist", "wrist_image"),
+                        "observation/state": ("observation.state", "state"),
+                        "actions": ("action", "actions"),
+                        # Prompt may already be present, otherwise fall back to task string.
                         "prompt": ("prompt", "task"),
                     }
                 )
@@ -446,6 +447,94 @@ class TrainConfig:
 
 # Use `get_config` if you need to get a config by name in your code.
 _CONFIGS = [
+     TrainConfig(
+        # Plain pi0 (no MoE) finetuning on libero_4suit.
+        name="pi0_libero4suit",
+        model=pi0.Pi0Config(use_moe=False),
+        assets_base_dir="assets",
+        data=LeRobotLiberoDataConfig(
+            repo_id="libero_4suit",
+            # Reuse already-computed norm stats (to avoid recomputing for this config).
+            # assets=AssetsConfig(
+            #     assets_dir="pi0_libero4suit",
+            #     # asset_id="libero_4suit",
+            # ),
+            base_config=DataConfig(
+                prompt_from_task=True,
+                local_files_only=True,
+                local_root_dir="/inspire/hdd/project/wuliqifa/public/gezuhao/libero_4suit",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/inspire/hdd/project/wuliqifa/public/yangbowen/pi0_base_params/pi0_base/params"
+        ),
+        batch_size=16,
+        num_train_steps=60000,
+        wandb_enabled=True,
+        fsdp_devices=2,
+        num_workers=4,
+        log_interval=100,
+        keep_period=30000,
+    ),
+    TrainConfig(
+        name="AdaMoE_libero4suit",
+        model=pi0.Pi0Config(
+            use_moe=True,  # Enable MoE
+            moe_type=_gemma.MoEType.ADAMOE,  # Use AdaMoE by default
+            num_experts=4,
+            top_k=1,
+        ),
+        assets_base_dir="assets",
+        data=LeRobotLiberoDataConfig(
+            # Local merged LeRobot dataset directory name (will be resolved under HF_LEROBOT_HOME).
+            repo_id="libero_4suit",
+            base_config=DataConfig(
+                prompt_from_task=True,
+                local_files_only=True,
+                # Point this to your on-disk LeRobot dataset directory:
+                # e.g. /inspire/hdd/project/wuliqifa/public/gezuhao/libero_noops_with_attention_skill
+                local_root_dir="/inspire/hdd/project/wuliqifa/public/gezuhao/libero_4suit",
+            ),
+        ),
+        weight_loader=weight_loaders.MoEWeightLoader(
+            # Pi0 base (JAX/Orbax) checkpoint params directory.
+            # Use either a GCS path like:
+            #   gs://openpi-assets/checkpoints/pi0_base/params
+            # or a local absolute directory containing the Orbax params checkpoint.
+            params_path="/inspire/hdd/project/wuliqifa/public/yangbowen/pi0_base_params/pi0_base/params",
+            num_experts=4,  # Set number of routed experts in your model
+            noise_std=0.0,  # Set the noise level added to your experts during their initialization; higher noise levels means you will have diverse experts from the beginning, but are more likely to impair the experts' knowledge inherited from the base model
+            gating_init_std=0.006,  # std during router initialization
+        ),
+        batch_size=16,
+        num_train_steps=60000,
+        wandb_enabled=True,
+        fsdp_devices=2,
+        num_workers=4,
+        optimizer=_optimizer.MultiGroupAdamW(
+            lr_base=2.5e-5,  # Base model components
+            lr_moe=2.5e-5,  # MoE components
+            lr_router=5e-5,  # Router components
+            wd_base=1e-6,  # Base weight decay
+            wd_moe=1e-6,  # MoE weight decay
+            wd_router=1e-6,  # Router weight decay
+            # Cosine decay schedule parameters for each group
+            # Warmup steps
+            warmup_steps_base=1000,
+            warmup_steps_moe=1000,
+            warmup_steps_router=100,
+            # Decay steps
+            decay_steps_base=90000,
+            decay_steps_moe=90000,
+            decay_steps_router=90000,
+            # Final learning rates
+            decay_lr_base=1e-6,
+            decay_lr_moe=1e-6,
+            decay_lr_router=1e-6,
+        ),
+        log_interval=100,
+        keep_period=30000,
+    ),
     TrainConfig(
         name="AdaMoE_libero",
         model=pi0.Pi0Config(
@@ -454,6 +543,7 @@ _CONFIGS = [
             num_experts=4,
             top_k=1,
         ),
+        assets_base_dir="assets",
         data=LeRobotLiberoDataConfig(
             # Local merged LeRobot dataset directory name (will be resolved under HF_LEROBOT_HOME).
             repo_id="libero_plus_lerobot_hf_full",
@@ -475,11 +565,11 @@ _CONFIGS = [
             noise_std=0.0,  # Set the noise level added to your experts during their initialization; higher noise levels means you will have diverse experts from the beginning, but are more likely to impair the experts' knowledge inherited from the base model
             gating_init_std=0.006,  # std during router initialization
         ),
-        batch_size=32,
+        batch_size=16,
         num_train_steps=90000,
         wandb_enabled=True,
         fsdp_devices=2,
-        num_workers=40,
+        num_workers=4,
         optimizer=_optimizer.MultiGroupAdamW(
             lr_base=2.5e-5,  # Base model components
             lr_moe=2.5e-5,  # MoE components

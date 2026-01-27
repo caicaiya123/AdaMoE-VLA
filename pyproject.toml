@@ -7,6 +7,9 @@ license = { file = "LICENSE" }
 dependencies = [
     "pip==24.2",
     "augmax>=0.3.4",
+    # Pin datasets to <4.0 to keep parquet feature metadata compatible with older stacks
+    # (avoids `Feature type 'List' not found` when reading older-generated parquet).
+    "datasets<4.0",
     "dm-tree>=0.1.8",
     "einops>=0.8.0",
     "equinox>=0.11.8",
@@ -49,6 +52,8 @@ dependencies = [
     "zarr",
     "openai",
     "huggingface_hub",
+    # Keep transformers compatible (some versions require huggingface-hub <1.0).
+    "huggingface-hub>=0.24.0,<1.0",
     "ffmpeg",
 ]
 

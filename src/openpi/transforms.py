@@ -142,8 +142,14 @@ class RepackTransformWithFallback(DataTransformFn):
                 f"Available keys (sample): {list(flat_item.keys())[:50]}"
             )
 
-        # `jax.tree.map` will preserve dict/list/tuple structure for us.
-        return jax.tree.map(resolve, self.structure)
+        # Important: JAX treats tuples/lists as PyTree nodes by default, which would cause
+        # it to call `resolve()` on each element of a fallback tuple separately.
+        # We mark "sequence of strings" as a leaf so the fallback list/tuple reaches `resolve()`
+        # as a single object.
+        def is_leaf(x):
+            return isinstance(x, (tuple, list)) and all(isinstance(i, str) for i in x)
+
+        return jax.tree.map(resolve, self.structure, is_leaf=is_leaf)
 
 
 @dataclasses.dataclass(frozen=True)

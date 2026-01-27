@@ -188,6 +188,15 @@ def train_step(
         chunked_loss, moe_info = (
             model.compute_loss(rng, observation, actions, train=True)
         )
+        # Non-MoE models may return moe_info=None. Normalize downstream code by using
+        # zeros for MoE-specific metrics and not adding a balancing term to the loss.
+        if moe_info is None:
+            zero = jnp.asarray(0.0, dtype=chunked_loss.dtype)
+            moe_info = {
+                "z_loss": zero,
+                "load_balancing_loss": zero,
+                "activation_square_sum": zero,
+            }
 
         def warmup_branch(_):
             return (
@@ -297,9 +306,9 @@ def train_step(
     info = {
         "loss": loss,
         "flow_matching_loss": flow_matching_loss,
-        "z_loss": moe_info["z_loss"],
-        "load_balancing_loss": moe_info["load_balancing_loss"],
-        "activation_square_sum": moe_info["activation_square_sum"],
+        "z_loss": moe_info.get("z_loss", jnp.asarray(0.0, dtype=loss.dtype)),
+        "load_balancing_loss": moe_info.get("load_balancing_loss", jnp.asarray(0.0, dtype=loss.dtype)),
+        "activation_square_sum": moe_info.get("activation_square_sum", jnp.asarray(0.0, dtype=loss.dtype)),
         "moe_norm": optax.global_norm(moe_params),  # Only trainable MoE kernels
         "router_norm": optax.global_norm(
             router_params

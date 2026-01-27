@@ -10,13 +10,14 @@ from openpi.models import model as _model
 from openpi.shared import array_typing as at
 
 
-@at.typecheck
 @struct.dataclass
 class TrainState:
-    step: at.Int[at.ArrayLike, ""]
+    # Avoid runtime typechecking issues with beartype/jaxtyping forward refs that can
+    # vary across dependency versions in different environments.
+    step: Any
     params: nnx.State
     model_def: nnx.GraphDef[_model.BaseModel]
-    opt_state: optax.OptState
+    opt_state: Any
     tx: optax.GradientTransformation = struct.field(pytree_node=False)
 
     ema_decay: float | None = struct.field(pytree_node=False)
